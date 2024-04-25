@@ -1,0 +1,133 @@
+﻿@inject ITournamentService TournamentService
+@inject IdentityUserAccessor UserAccessor
+@inject IHttpContextAccessor HttpContextAccessor
+
+@if (Match != null)
+{
+    <div class="match-container">
+        <div class="match-info">
+            <div class="players">
+                <span class="player @(user.Id == Match.Player1.Id ? "highlighted" : "")">
+                    <img class="profile-photo" style="margin-right: 5px" src="uploads/usersPhotos/@Match.Player1.ProfilePhoto" />
+                    <span class="player-name">@Match.Player1.Name @Match.Player1.Surname</span>
+                </span>
+                <span>przeciwko</span>
+                <span class="player @(Match.Player2 != null && user.Id == Match.Player2.Id ? "highlighted" : "")">
+                    <span class="player-name">
+                        @(Match.Player2 != null ? Match.Player2.Name + " " + Match.Player2.Surname : "Brak przeciwnika")
+                    </span>
+                    @if (Match.Player2 != null)
+                    {
+                        <img class="profile-photo" style="margin-left: 5px" src="uploads/usersPhotos/@Match.Player2.ProfilePhoto" />
+                    }
+                    else
+                    {
+                        <img class="profile-photo" style="margin-left: 5px" src="uploads/usersPhotos/default.jpg" />
+                    }
+                </span>
+            </div>
+            <form class="score-form">
+                <label for="player1-score">Białe:</label>
+                <select id="player1-score" @bind="Match.Player1Score" disabled="@Disabled">
+                    <option value="0">0</option>
+                    <option value="0.5">0.5</option>
+                    <option value="1">1</option>
+                </select>
+                <label for="player2-score">Czarne:</label>
+                <select id="player2-score" @bind="Match.Player2Score" disabled="@Disabled">
+                    <option value="0">0</option>
+                    <option value="0.5">0.5</option>
+                    <option value="1">1</option>
+                </select>
+                @if (RoundStatus != 2 && CanEdit)
+                {
+                    <button type="button" class="edit-button" @onclick="(e) => UpdateMatchScore(e)">
+                        @(Match.Player1Score != null && Match.Player2Score != null ? "Edytuj" : "Zapisz")
+                    </button>
+                }
+            </form>
+        </div>
+    </div>
+}
+else
+{
+    <p>Nie znaleziono meczu.</p>
+}
+
+@code {
+    private ApplicationUser user = default!;
+
+    [Parameter]
+    public Match Match { get; set; }
+
+    [Parameter]
+    public int RoundStatus { get; set; }
+
+    [Parameter]
+    public bool CanEdit { get; set; }
+
+    private bool Disabled => !CanEdit;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await UserAccessor.GetRequiredUserAsync(HttpContextAccessor.HttpContext);
+    }
+
+    private void UpdateMatchScore(EventArgs e)
+    {
+        Match.Player1Score = Match.Player1Score == null ? 0 : Match.Player1Score;
+        Match.Player2Score = Match.Player2Score == null ? 0 : Match.Player2Score;
+        TournamentService.RecordMatchScore(Match.Id, (double)Match.Player1Score!, (double)Match.Player2Score!);
+    }
+}
+
+<style>
+    .match-container {
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #f9f9f9;
+    }
+
+        .match-container p {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .match-container form {
+            margin-top: 10px;
+        }
+
+        .match-container label {
+            margin-right: 5px;
+        }
+
+        .match-container select {
+            margin-right: 10px;
+        }
+
+        .match-container button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+    .highlighted {
+        color: #007bff;
+    }
+
+    .profile-photo {
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+    }
+
+    .player-name {
+        font-weight: bold;
+    }
+</style>

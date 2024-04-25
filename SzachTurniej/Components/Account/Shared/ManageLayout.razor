@@ -1,0 +1,23 @@
+﻿@inherits LayoutComponentBase
+@layout AccountLayout
+
+<PageTitle>Zarządzanie kontem</PageTitle>
+<div class="container-md mt-5">
+    <div class="row mt-5">
+        <div class="col-12 mt-5 mb-4">
+            <h1>Zarządzanie kontem</h1>
+
+            <div>
+                <hr />
+                <div class="row">
+                    <div class="col-md-3">
+                        <ManageNavMenu />
+                    </div>
+                    <div class="col-md-9">
+                        @Body
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

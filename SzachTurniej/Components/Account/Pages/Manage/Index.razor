@@ -1,0 +1,241 @@
+﻿@page "/Account/Manage"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using SzachTurniej.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IdentityUserAccessor UserAccessor
+@inject IdentityRedirectManager RedirectManager
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IWebHostEnvironment environment
+@rendermode InteractiveServer
+@inject NavigationManager NavigationManager
+
+<PageTitle>Profil</PageTitle>
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="alert alert-success" role="alert">
+        @Message
+    </div>
+}
+<StatusMessage />
+
+<div class="row">
+    <div class="col-md-6">
+        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <h3>Dane podstawowe</h3>
+            <div class="form-floating mb-3">
+                <InputText type="text" @bind-Value="Input.Name" class="form-control" />
+                <label>Imię</label>
+                <ValidationMessage For="() => Input.Name" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText type="text" @bind-Value="Input.Surname" class="form-control" />
+                <label>Nazwisko</label>
+                <ValidationMessage For="() => Input.Surname" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputDate Type="InputDateType.Date" @bind-Value="Input.BirthDate" class="form-control" />
+                <label>Data urodzenia</label>
+                <ValidationMessage For="() => Input.BirthDate" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputSelect class="form-control" @bind-Value="Input.Sex">
+                    @foreach (var type in Enum.GetValues(typeof(SexEnum)))
+                    {
+                        var enumValue = (SexEnum)type;
+                        <option value="@((int)type)"><EnumDescription TEnum="SexEnum" EnumValue="enumValue" /></option>
+                    }
+                </InputSelect>
+                <label>Płeć</label>
+                <ValidationMessage For="() => Input.Sex" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputText type="text" @bind-Value="Input.City" class="form-control" />
+                <label>Miejscowość</label>
+                <ValidationMessage For="() => Input.City" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputFile OnChange="@((InputFileChangeEventArgs args) => LoadFile(args))" class="form-control mb-2" accept=".png,.jpg,.jpeg"></InputFile>
+                <label>Zdjęcie profilowe</label>
+                @if (fileErrors.Count > 0)
+                {
+                    @foreach (var error in fileErrors)
+                    {
+                        <span class="text-danger">@error</span>
+                    }
+                }
+                @if (!string.IsNullOrEmpty(Input.ProfilePhoto))
+                {
+                    <img src="/uploads/usersPhotos/@Input.ProfilePhoto" alt="Profile Photo" style="max-width: 200px; max-height: 200px;" />
+                }
+            </div>
+            <hr />
+            <h3>Dane gracza</h3>
+            <div class="form-floating mb-3">
+                <InputText type="text" @bind-Value="Input.Club" class="form-control" />
+                <label>Klub szachowy</label>
+                <ValidationMessage For="() => Input.Club" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputSelect class="form-control" @bind-Value="Input.ChessCategory">
+                    @foreach (var type in Enum.GetValues(typeof(ChessCategoryEnum)))
+                    {
+                        var enumValue = (ChessCategoryEnum)type;
+                        <option value="@((int)type)"><EnumDescription TEnum="ChessCategoryEnum" EnumValue="enumValue" /></option>
+                    }
+                </InputSelect>
+                <label>Kategoria szachowa</label>
+                <ValidationMessage For="() => Input.ChessCategory" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputNumber class="form-control mb-2" @bind-Value="Input.RankingPZSZACH"></InputNumber>
+                <label>Ranking PZSZACH</label>
+                <ValidationMessage For="() => Input.RankingPZSZACH" class="text-danger" />
+            </div>
+            <div class="form-floating mb-3">
+                <InputNumber class="form-control mb-2" @bind-Value="Input.RankingFIDE"></InputNumber>
+                <label>Ranking FIDE</label>
+                <ValidationMessage For="() => Input.RankingFIDE" class="text-danger" />
+            </div>
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Zapisz</button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private ApplicationUser user = default!;
+    private string? username;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    private string Message { get; set; } = "";
+
+    private long maxFileSize = 1024 * 1024 * 50; //50MB
+    private List<string> fileErrors = new();
+    private IBrowserFile? file;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = new Uri(NavigationManager.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        Message = query["message"];
+
+        user = await UserAccessor.GetRequiredUserAsync(HttpContextAccessor.HttpContext);
+        username = await UserManager.GetUserNameAsync(user);
+        Input.ProfilePhoto = user.ProfilePhoto;
+        Input.Name = user.Name;
+        Input.Surname = user.Surname;
+        Input.BirthDate = user.BirthDate;
+        Input.Sex = user.Sex;
+        Input.City = user.City;
+        Input.ChessCategory = user.ChessCategory;
+        Input.RankingPZSZACH = user.RankingPZSZACH;
+        Input.RankingFIDE = user.RankingFIDE;
+    }
+
+    private void LoadFile(InputFileChangeEventArgs e)
+    {
+        fileErrors.Clear();
+        if (e.File.Size > maxFileSize)
+        {
+            fileErrors.Add("Za duży rozmiar zdjęcia. Dopuszczalne 50MB.");
+        }
+        else
+        {
+            file = e.File;
+        }
+    }
+
+    private async Task<string> CaptureFile()
+    {
+        if (file != null)
+        {
+            try
+            {
+                string uploadsPath = Path.Combine(environment.WebRootPath, "uploads");
+                string userPhotosPath = Path.Combine(uploadsPath, "usersPhotos");
+                string newFileName = Path.ChangeExtension(Path.GetRandomFileName(), Path.GetExtension(file.Name));
+                string path = Path.Combine(userPhotosPath, newFileName);
+
+                await using FileStream fs = new(path, FileMode.Create);
+                await file.OpenReadStream(maxFileSize).CopyToAsync(fs);
+
+                return newFileName;
+            }
+            catch (Exception ex)
+            {
+                fileErrors.Add($"Plik: {file.Name} Błąd: {ex.Message}");
+            }
+        }
+
+        return "";
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        try
+        {
+            string relativePath = await CaptureFile();
+            if (!string.IsNullOrEmpty(relativePath))
+            {
+                user.ProfilePhoto = relativePath;
+            }
+            user.Name = Input.Name;
+            user.Surname = Input.Surname;
+            user.BirthDate = Input.BirthDate;
+            user.Sex = Input.Sex;
+            user.City = Input.City;
+            user.Club = Input.Club;
+            user.ChessCategory = Input.ChessCategory;
+            user.RankingPZSZACH = Input.RankingPZSZACH;
+            user.RankingFIDE = Input.RankingFIDE;
+
+            await UserManager.UpdateAsync(user);
+
+            NavigationManager.NavigateTo("/Account/Manage?message=Twój profil został zaaktualizowany", true);
+        }
+        catch (Exception ex)
+        {
+            NavigationManager.NavigateTo("/Account/Manage?message=Wystąpił błąd podczas aktualizacji profilu", true);
+        }
+    }
+
+    private sealed class InputModel
+    {
+        [Display(Name = "Imię")]
+        public string Name { get; set; } = "";
+
+        [Display(Name = "Nazwisko")]
+        public string Surname { get; set; } = "";
+
+        [Display(Name = "Data urodzenia")]
+        public DateOnly? BirthDate { get; set; } = DateOnly.FromDateTime(DateTime.Now);
+
+        [Display(Name = "Płeć")]
+        public int? Sex { get; set; }
+
+        [Display(Name = "Miejscowość")]
+        public string? City { get; set; } = "";
+
+        [Display(Name = "Klub szachowy")]
+        public string Club { get; set; } = "";
+
+        [Display(Name = "Kategoria szachowa")]
+        public int? ChessCategory { get; set; }
+
+        [Display(Name = "Ranking PZSZACH")]
+        public int? RankingPZSZACH { get; set; }
+
+        [Display(Name = "Ranking FIDE")]
+        public int? RankingFIDE { get; set; }
+
+        [Display(Name = "Zdjęcie profilowe")]
+        public string? ProfilePhoto { get; set; }
+    }
+}

@@ -1,0 +1,187 @@
+﻿@page "/tournaments"
+@using Microsoft.AspNetCore.Identity
+@inject ITournamentService TournamentService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Turnieje</PageTitle>
+<div class="container-md mt-5">
+    <div class="row mt-5">
+        <div class="col-12 mt-5 mb-4">
+
+            @if (tournaments == null)
+            {
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <span>Ładowanie...</span>
+                    </div>
+                </div>
+            }
+            else if (tournaments.Count == 0)
+            {
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <div class="col">
+                            <div class="text-end">
+                                <AuthorizeView>
+                                    <button class="btn btn-success mt-3" @onclick="NavigateToAddPage">Utwórz turniej</button>
+                                </AuthorizeView>
+                            </div>
+                        </div>
+                        <span class="empty-message">Nie znaleziono żadnych turnieji.</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col">
+                                <div class="mt-2 mb-2" style="display: @(showFilters ? "block" : "none")">
+                                    <div class="form-group">
+                                        <label for="statusFilter">Status:</label>
+                                        <select id="statusFilter" class="form-select" @bind="selectedStatus">
+                                            <option value="">Wszystkie</option>
+                                            <option value="2">Planowane</option>
+                                            <option value="3">Trwające</option>
+                                            <option value="4">Zakończone</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="typeFilter">Typ:</label>
+                                        <select id="typeFilter" class="form-select" @bind="selectedType">
+                                            <option value="">Wszystkie</option>
+                                            <option value="1">Klasyczny</option>
+                                            <option value="2">Szybki</option>
+                                            <option value="3">Błyskawiczny</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="nameFilter">Nazwa turnieju:</label>
+                                        <input id="nameFilter" type="text" class="form-control" @bind="searchTerm" placeholder="Wyszukaj po nazwie" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="locationFilter">Miejscowość:</label>
+                                        <input id="locationFilter" type="text" class="form-control" @bind="locationFilter" placeholder="Wyszukaj po miejscowości" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="startDateFilter">Data rozpoczęcia:</label>
+                                        <input id="startDateFilter" type="date" class="form-control" @bind="startDateFilter" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="endDateFilter">Data zakończenia:</label>
+                                        <input id="endDateFilter" type="date" class="form-control" @bind="endDateFilter" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="roundsFilter">Liczba rund:</label>
+                                        <input id="roundsFilter" type="number" class="form-control" @bind="roundsFilter" placeholder="Wyszukaj po liczbie rund" />
+                                    </div>
+                                    <button class="btn btn-success mt-3" @onclick="ApplyFilters">Zastosuj</button>
+                                </div>
+                                <div class="row">
+                                    <div class="col">
+                                        <button class="btn btn-primary mt-3" @onclick="ToggleFilters">@(showFilters ? "Ukryj filtry" : "Pokaż filtry")</button>
+                                    </div>
+                                    <div class="col">
+                                        <div class="text-end">
+                                            <AuthorizeView>
+                                                <button class="btn btn-success mt-3" @onclick="NavigateToAddPage">Utwórz turniej</button>
+                                            </AuthorizeView>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <table class="table mt-3">
+                            <thead>
+                                <tr>
+                                    <th>Nazwa</th>
+                                    <th>Data rozpoczęcia</th>
+                                    <th>Data zakończenia</th>
+                                    <th>Typ</th>
+                                    <th>Miejscowość</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var tournament in filteredTournaments)
+                                {
+                                    <tr>
+                                        <td class="align-middle">@tournament.Name</td>
+                                        <td class="align-middle">@tournament.StartDate.ToShortDateString()</td>
+                                        <td class="align-middle">@tournament.EndDate.ToShortDateString()</td>
+                                        <td class="align-middle"><EnumDescription TEnum="TournamentTypeEnum" EnumValue="(TournamentTypeEnum)tournament.Type" /></td>
+                                        <td class="align-middle">@tournament.Location</td>
+                                        <td class="align-middle"><EnumDescription TEnum="TournamentStatusEnum" EnumValue="(TournamentStatusEnum)tournament.Status" /></td>
+                                        <td class="align-middle"><button class="btn btn-primary" @onclick="() => NavigateToDetailsPage(tournament.Id)">Szczegóły</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    List<Tournament> tournaments = null;
+    List<Tournament> filteredTournaments;
+    string searchTerm = "";
+    string locationFilter = "";
+    DateTime? startDateFilter = null;
+    DateTime? endDateFilter = null;
+    int? basicTimeFilter = null;
+    int? roundsFilter = null;
+    int? selectedStatus = null;
+    int? selectedType = null;
+    private bool showFilters = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        tournaments = await TournamentService.GetAll();
+        ApplyFilters();
+    }
+
+    private void ToggleFilters()
+    {
+        showFilters = !showFilters;
+    }
+
+    void NavigateToDetailsPage(int tournamentId)
+    {
+        NavigationManager.NavigateTo($"/details-tournament/{tournamentId}");
+    }
+
+    void NavigateToAddPage()
+    {
+        NavigationManager.NavigateTo($"/edit-tournament");
+    }
+
+    async Task Delete(int id)
+    {
+        await TournamentService.Delete(id);
+        tournaments = await TournamentService.GetAll();
+        ApplyFilters();
+    }
+
+    void ApplyFilters()
+    {
+        if (tournaments != null)
+        {
+            filteredTournaments = tournaments.Where(t =>
+                (string.IsNullOrEmpty(searchTerm) || t.Name.ToLower().Contains(searchTerm.ToLower())) &&
+                (string.IsNullOrEmpty(locationFilter) || t.Location.ToLower().Contains(locationFilter.ToLower())) &&
+                (!startDateFilter.HasValue || t.StartDate.Date >= startDateFilter.Value.Date) &&
+                (!endDateFilter.HasValue || t.EndDate.Date <= endDateFilter.Value.Date) &&
+                (!basicTimeFilter.HasValue || t.BasicTime == basicTimeFilter.Value) &&
+                (!roundsFilter.HasValue || t.Rounds == roundsFilter.Value) &&
+                (!selectedStatus.HasValue || t.Status == selectedStatus.Value) &&
+                (!selectedType.HasValue || t.Type == selectedType.Value)
+            ).ToList();
+        }
+    }
+}

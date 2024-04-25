@@ -1,0 +1,147 @@
+﻿@page "/"
+
+@inject ITournamentService TournamentService
+@using SzachTurniej.Data
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Szach turniej</PageTitle>
+
+<div class="container-md mt-5">
+    <div class="row mt-5">
+        <div class="col-12 mt-5 mb-4">
+
+            <div class="container mt-3">
+                <div class="card">
+                    <div class="card-header">
+                        Planowane turnieje
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th scope="col">Nazwa</th>
+                                        <th scope="col">Data rozpoczęcia</th>
+                                        <th scope="col">Data zakończenia</th>
+                                        <th scope="col">Typ</th>
+                                        <th scope="col">Miejscowość</th>
+                                        <th scope="col"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (onPlanningtournaments == null)
+                                    {
+                                        <tr>
+                                            <td colspan="6" class="text-center align-middle">Ładowanie...</td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var tournament in onPlanningtournaments)
+                                        {
+                                            <tr>
+                                                <td class="align-middle">@tournament.Name</td>
+                                                <td class="align-middle">@tournament.StartDate.ToShortDateString()</td>
+                                                <td class="align-middle">@tournament.EndDate.ToShortDateString()</td>
+                                                <td class="align-middle"><EnumDescription TEnum="TournamentTypeEnum" EnumValue="(TournamentTypeEnum)tournament.Type" /></td>
+                                                <td class="align-middle">@tournament.Location</td>
+                                                <td class="text-center align-middle"><button class="btn btn-primary" @onclick="() => NavigateToDetailsPage(tournament.Id)">Szczegóły</button></td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="container mt-3">
+                <div class="card">
+                    <div class="card-header">
+                        Ostatnio rozegrane turnieje
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th scope="col">Nazwa</th>
+                                        <th scope="col">Data rozpoczęcia</th>
+                                        <th scope="col">Data zakończenia</th>
+                                        <th scope="col">Typ</th>
+                                        <th scope="col">Miejscowość</th>
+                                        <th scope="col"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (endedTournaments == null)
+                                    {
+                                        <tr>
+                                            <td colspan="6" class="text-center align-middle">Ładowanie...</td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var tournament in endedTournaments)
+                                        {
+                                            <tr>
+                                                <td class="align-middle">@tournament.Name</td>
+                                                <td class="align-middle">@tournament.StartDate.ToShortDateString()</td>
+                                                <td class="align-middle">@tournament.EndDate.ToShortDateString()</td>
+                                                <td class="align-middle"><EnumDescription TEnum="TournamentTypeEnum" EnumValue="(TournamentTypeEnum)tournament.Type" /></td>
+                                                <td class="align-middle">@tournament.Location</td>
+                                                <td class="text-center align-middle"><button class="btn btn-primary" @onclick="() => NavigateToDetailsPage(tournament.Id)">Zobacz wyniki</button></td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    List<Data.Tournament> endedTournaments = null;
+    List<Data.Tournament> onPlanningtournaments = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        endedTournaments = await TournamentService.GetLastFinished();
+        onPlanningtournaments = await TournamentService.GetLastOnPlanning();
+    }
+
+    void NavigateToDetailsPage(int tournamentId)
+    {
+        NavigationManager.NavigateTo($"/details-tournament/{tournamentId}");
+    }
+}
+
+<style>
+    .tournament-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .tournament-card {
+        background-color: #f9f9f9;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        width: 300px;
+    }
+
+        .tournament-card h3 {
+            margin-top: 0;
+        }
+
+        .tournament-card p {
+            margin: 10px 0;
+        }
+</style>

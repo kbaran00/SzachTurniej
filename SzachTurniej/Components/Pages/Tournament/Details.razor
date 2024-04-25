@@ -1,0 +1,457 @@
+﻿@page "/details-tournament/{id:int}"
+@using Microsoft.AspNetCore.Identity
+@using SzachTurniej.Components.Pages.Tournament.Shared
+@using SzachTurniej.Components.Pages.Tournament
+@using SzachTurniej.Components.Shared
+@inject ITournamentService TournamentService
+@inject IWebHostEnvironment environment
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> _userManager
+@inject IdentityUserAccessor UserAccessor
+@rendermode InteractiveServer
+
+@if (tournament != null)
+{
+    <PageTitle>@tournament.Name</PageTitle>
+}
+else
+{
+    <PageTitle>Turniej</PageTitle>
+}
+<div class="container-md mt-5">
+    <div class="row mt-5">
+        <div class="col-12 mt-5 mb-4">
+            <div class="card mt-3">
+                @if (tournament != null)
+                {
+                    <InfoModal Message="@message" TitleMessage="@titleMessage" ErrorModal="@errorModal" @bind-showModal="showModal" />
+                    <div class="card-header">
+                        <div class="row">
+                            <div class="col">
+                                <h3 class="card-title">@tournament.Name</h3>
+                            </div>
+                            <div class="col">
+                                <div class="text-end">
+
+                                    @if (CanUserEditTournament(tournament))
+                                    {
+                                        @if ((tournament.Status != (int)TournamentStatusEnum.Finished && tournament.Status != (int)TournamentStatusEnum.ToAccept) || isAdmin)
+                                        {
+                                            <ChangeStatus Id="@tournament.Id" OnStatusChanged="HandleStatusChanged" />
+                                        }
+                                        @if (isAdmin)
+                                        {
+                                            <ReturnToAcceptStatus Id="@tournament.Id" OnStatusChanged="HandleStatusChanged" />
+                                        }
+                                        <button class="btn btn-primary" @onclick="GoBack">Powrót</button>
+                                        <button class="btn btn-warning" @onclick="() => NavigateToEditPage(tournament.Id)">Edytuj</button>
+                                        <button class="btn btn-danger" @onclick="() => Delete(tournament.Id)">Usuń</button>
+                                    }
+
+                                </div>
+                            </div>
+                        </div>
+                        <hr />
+                        <div class="row">
+                            <div class="col">
+                                <div class="container-fluid container-xl d-flex align-items-center justify-content-between">
+                                    <nav id="navbar" class="navbar">
+                                        <ul class="nav-list">
+                                            <li><div class="nav-item @(tabDetails ? "selected" : "")" @onclick="() => DisplayTab(1)">Szczegóły</div></li>
+                                            <li><div class="nav-item @(tabUsers ? "selected" : "")" @onclick="() => DisplayTab(2)">Lista startowa</div></li>
+                                            <li><div class="nav-item @(tabRounds ? "selected" : "")" @onclick="() => DisplayTab(3)">Rundy</div></li>
+                                            <li><div class="nav-item @(tabStandings ? "selected" : "")" @onclick="() => DisplayTab(4)">Wyniki</div></li>
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="text-end">
+                                    @if (CanUserRegisterForTournament(tournament))
+                                    {
+                                        @if (user != null)
+                                        {
+                                            <button class="btn btn-success" @onclick="() => RegisterForTournament(tournament.Id)">Zapisz się na turniej</button>
+                                        }
+                                    }
+                                    @if(user == null)
+                                    {
+                                        <button class="btn btn-success" disabled>Zaloguj się, aby się zapisać</button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Tab content -->
+                            <div class="tab-content">
+                                <!-- Details tab content -->
+                                @if (tabDetails)
+                                {
+                                    <div class="card-body">
+                                        <p><strong>Data rozpoczęcia:</strong> @tournament.StartDate.ToShortDateString()</p>
+                                        <p><strong>Data zakończenia:</strong> @tournament.EndDate.ToShortDateString()</p>
+                                        <p><strong>Miejscowość:</strong> @tournament.Location</p>
+                                        <p><strong>Sędzia:</strong> @tournament.Arbiter</p>
+                                        <p><strong>Typ:</strong> <EnumDescription TEnum="TournamentTypeEnum" EnumValue="@((TournamentTypeEnum)tournament.Type)" /></p>
+                                        <p><strong>Czas podstawowy:</strong> @tournament.BasicTime <EnumDescription TEnum="TimeTypeEnum" EnumValue="@((TimeTypeEnum)tournament.BasicTimeType)" /></p>
+                                        <p><strong>Czas dodatkowy za ruch:</strong> @tournament.AdditionalTime <EnumDescription TEnum="TimeTypeEnum" EnumValue="@((TimeTypeEnum)tournament.AdditionalTimeType)" /></p>
+                                        <p><strong>Liczba rund:</strong> @tournament.Rounds</p>
+                                        <p><strong>Status:</strong> <EnumDescription TEnum="TournamentStatusEnum" EnumValue="@((TournamentStatusEnum)tournament.Status)" /></p>
+                                        @if (!string.IsNullOrEmpty(tournament.Regulation))
+                                        {
+                                            <p><strong>Regulamin:</strong> <a href="@($"uploads/tournamentRegulations/{tournament.Regulation}")" download>Pobierz</a></p>
+                                        }
+                                        <p><strong>Opis:</strong> @(string.IsNullOrWhiteSpace(tournament.Description) ? "brak opisu" : tournament.Description)</p>
+                                    </div>
+                                }
+
+                                <!-- Lista startowa -->
+                                @if (tabUsers)
+                                {
+                                    <div class="card-body">
+                                            <table class="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Gracz</th>
+                                                        <th>Klub szachowy</th>
+                                                        <th>Kategoria</th>
+                                                        <th>Ranking FIDE</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var tabUser in tournament.RegisteredUsers.OrderByDescending(x => x.RankingFIDE))
+                                                    {
+                                                    <tr class="@((tabUser.Id == user.Id) ? "td-highlighted" : "")">
+                                                        <td>
+                                                            <img class="profile-photo" style="margin-right: 5px" src="uploads/usersPhotos/@tabUser.ProfilePhoto" />
+                                                            @tabUser.Name @tabUser.Surname</td>
+                                                        <td>@(string.IsNullOrEmpty(tabUser.Club) ? "brak" : @tabUser.Club)</td>
+                                                        @if (tabUser.ChessCategory == null || tabUser.ChessCategory == 0)
+                                                        {
+                                                            <td>brak</td>
+                                                        }
+                                                        else
+                                                        {
+                                                            <td><EnumDescription TEnum="ChessCategoryEnum" EnumValue="@((ChessCategoryEnum)tabUser.ChessCategory)" /></td>
+                                                        }
+                                                        <td>@(tabUser.RankingFIDE == null || tabUser.RankingFIDE == 0 ? "brak rankingu" : @tabUser.RankingFIDE)</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                    </div>
+                                }
+
+                                <!-- Roundy -->
+                                @if (tabRounds)
+                                {
+                                    <div class="card-body">
+                                        @if (tournament != null)
+                                        {
+                                            var round = tournament.TournamentRounds.FirstOrDefault(r => r.RoundNumber == selectedRound);
+                                            <!-- Display buttons for each round -->
+
+                                            <div class="row">
+                                                <div class="col-10">
+                                                    <div class="btn-group" role="group">
+                                                        <button type="button" class="btn btn-primary" disabled>Rundy:</button>
+                                                        @foreach (var tournamentRound in tournament.TournamentRounds)
+                                                        {
+                                                            <button type="button" class="btn btn-primary @(selectedRound == tournamentRound.RoundNumber ? "selected" : "")" @onclick="() => DisplayRound(tournamentRound.RoundNumber)">Runda @tournamentRound.RoundNumber</button>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <div class="col-2">
+                                                    <div class="text-end">
+                                                        @if (round != null && round.Status == 1 && tournament.Status == 3)
+                                                        {
+                                                            <button type="button" class="btn btn-success" @onclick="() => EndRound(round.Id)">Zakończ rundę</button>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Display matches for the selected round -->
+                                            @if (selectedRound > 0 && selectedRound <= tournament.TournamentRounds.Count)
+                                            {
+                                                if (round != null)
+                                                {
+                                                    <div style="margin-top: 10px">
+                                                        @foreach (var match in round.Matches)
+                                                        {
+                                                            <!-- match scores here -->
+                                                            <MatchDetails Match="@match" RoundStatus="@round.Status" CanEdit="@CanUserEditTournament(tournament)" />
+                                                        }
+                                                    </div>
+                                                }
+                                            }
+                                        }
+                                    </div>
+                                }
+
+                                <!-- Wyniki -->
+                                @if (tabStandings)
+                                {
+                                    <div class="card-body">
+                                        @if (Standings == null)
+                                        {
+                                            <p>Ładowanie...</p>
+                                        }
+                                        else if (Standings.Any())
+                                        {
+                                            <table class="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Gracz</th>
+                                                        <th>Punkty</th>
+                                                        <th>Buchholz</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var standing in Standings)
+                                                    {
+                                                        <tr class="@((user.Id == standing.User.Id) ? "td-highlighted" : "")">
+                                                            <td>
+                                                                <img class="profile-photo" style="margin-right: 5px" src="uploads/usersPhotos/@standing.User.ProfilePhoto" />
+                                                                @standing.User.Name @standing.User.Surname</td>
+                                                            <td>@standing.Points</td>
+                                                            <td>@standing.BuchholzScore</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        }
+                                        else
+                                        {
+                                            <p>Jeszcze żadana runda nie została rozegrana w tym turnieju.</p>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="card-body">
+                        <div class="row">
+                            Nie znaleziono turnieju
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Tournament tournament;
+    private ApplicationUser user = default!;
+    Boolean isAdmin = false;
+    Boolean isUser = false;
+    private int selectedRound = 1;
+    private List<TournamentStandings> Standings;
+
+    private bool showModal = false;
+
+    private string message = "";
+    private string titleMessage = "";
+    private bool errorModal = false;
+
+    // Tabs
+    private bool tabDetails = true;
+    private bool tabUsers = false;
+    private bool tabRounds = false;
+    private bool tabStandings = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserRoles();
+        tournament = await TournamentService.GetById(Id);
+        Standings = TournamentService.GetStandings(Id);
+        var onGoingRound = tournament.TournamentRounds.FirstOrDefault(x => x.Status == 1);
+        if (onGoingRound != null)
+        {
+            selectedRound = onGoingRound.RoundNumber;
+        }
+    }
+
+    private async Task GoBack()
+    {
+        await JSRuntime.InvokeVoidAsync("history.back");
+    }
+
+    async Task LoadUserRoles()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userIdentity = authenticationState.User;
+        if (userIdentity.Identity.IsAuthenticated)
+        {
+            user = await UserAccessor.GetRequiredUserAsync(HttpContextAccessor.HttpContext);
+            isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+            isUser = await _userManager.IsInRoleAsync(user, "User");
+        }
+    }
+
+    public void DisplayTab(int tabNumber)
+    {
+        switch (tabNumber)
+        {
+            case 1:
+                this.tabDetails = true;
+                this.tabUsers = false;
+                this.tabRounds = false;
+                this.tabStandings = false;
+                break;
+            case 2:
+                this.tabDetails = false;
+                this.tabUsers = true;
+                this.tabRounds = false;
+                this.tabStandings = false;
+                break;
+            case 3:
+                this.tabDetails = false;
+                this.tabUsers = false;
+                this.tabRounds = true;
+                this.tabStandings = false;
+                break;
+            case 4:
+                this.tabDetails = false;
+                this.tabUsers = false;
+                this.tabRounds = false;
+                this.tabStandings = true;
+                break;
+        }
+    }
+
+    public void DisplayRound(int roundNumber)
+    {
+        selectedRound = roundNumber;
+        StateHasChanged();
+    }
+
+    private async Task HandleStatusChanged()
+    {
+        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
+
+    bool CanUserEditTournament(Tournament tournament)
+    {
+        if (user == null || tournament == null)
+        {
+            return false;
+        }
+
+        return user.Id == tournament.CreatedBy || isAdmin;
+    }
+
+    bool CanUserRegisterForTournament(Tournament tournament)
+    {
+        if (user == null || tournament == null || tournament.Status != (int)TournamentStatusEnum.Planning || tournament.CreatedBy == user.Id)
+        {
+            return false;
+        }
+
+        return isUser && !tournament.RegisteredUsers.Any(u => u.Id == user.Id) || (!tournament.RegisteredUsers.Any(u => u.Id == user.Id) && isAdmin);
+    }
+
+    void NavigateToEditPage(int tournamentId)
+    {
+        NavigationManager.NavigateTo($"/edit-tournament/{tournamentId}");
+    }
+
+    async Task Delete(int id)
+    {
+        await TournamentService.Delete(id);
+        NavigationManager.NavigateTo("/tournaments", forceLoad: true);
+    }
+
+    private async Task RegisterForTournament(int tournamentId)
+    {
+        try
+        {
+            await TournamentService.RegisterUserForTournament(user.Id, tournamentId);
+            message = "Zostałeś zapisany na listę uczestników turnieju, powodzenia!";
+            titleMessage = "Zapisano na turniej";
+            errorModal = false;
+            showModal = true;
+        }
+        catch
+        {
+            titleMessage = "Wystąpił błąd";
+            message = "Nie udało się zapisać na turniej :(";
+            errorModal = true;
+            showModal = true;
+        }
+        finally
+        {
+            await LoadUserRoles();
+        }
+    }
+
+    private void EndRound(int roundId)
+    {
+        try
+        {
+            TournamentService.CalculateAndStoreStandings(tournament.Id, roundId);
+            if (tournament.Status == 4)
+            {
+                DisplayTab(4);
+            }
+            else
+            {
+                this.selectedRound++;
+            }
+            Standings = TournamentService.GetStandings(Id);
+        }
+        catch(InvalidOperationException ex)
+        {
+            titleMessage = "Wystąpił błąd";
+            message = ex.Message;
+            errorModal = true;
+            showModal = true;
+        }
+    }
+}
+
+<style>
+    .nav-list {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+    }
+
+    .nav-item {
+        padding: 10px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+    }
+
+    .nav-item.selected {
+        border-bottom-color: #007bff;
+    }
+
+    .btn-primary.selected {
+        background-color: #007bff; 
+        color: #fff; 
+        border-color: #007bff; 
+    }
+
+    .td-highlighted {
+        background-color: #ceddee;
+    }
+
+    .profile-photo {
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+    }
+</style>

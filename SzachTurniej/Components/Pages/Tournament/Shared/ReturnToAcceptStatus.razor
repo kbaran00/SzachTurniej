@@ -1,0 +1,35 @@
+﻿@page "/return-to-accept-status/{id:int}"
+@inject ITournamentService TournamentService
+
+@if (tournament != null)
+{
+    if (tournament.Status == (int)TournamentStatusEnum.Planning)
+    {
+        <button class="btn btn-secondary" @onclick="ReturnToPreviousTournamentStatus">Wróć do akceptacji</button>
+    }
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Tournament tournament;
+
+    [Parameter]
+    public EventCallback OnStatusChanged { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        tournament = await TournamentService.GetById(Id);
+    }
+
+    private async Task ReturnToPreviousTournamentStatus()
+    {
+        if (tournament != null)
+        {
+            tournament.Status = (int)TournamentStatusEnum.ToAccept;
+            await TournamentService.Update(tournament);
+            await OnStatusChanged.InvokeAsync();
+        }
+    }
+}

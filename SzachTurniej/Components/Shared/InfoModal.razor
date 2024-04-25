@@ -1,0 +1,75 @@
+﻿@if (showModal)
+{
+    <div class="modal fade show" id="infoModal" tabindex="-1" style="display: block;" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="@ModalHeaderClass">
+                    <h5 class="modal-title">@TitleMessage</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@Message</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool showModal { get; set; }
+
+    [Parameter]
+    public string TitleMessage { get; set; }
+
+    [Parameter]
+    public string Message { get; set; }
+
+    [Parameter]
+    public bool ErrorModal { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> showModalChanged { get; set; }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        showModalChanged.InvokeAsync(showModal);
+    }
+
+    private string ModalHeaderClass => ErrorModal ? "modal-header error-header" : "modal-header success-header";
+}
+
+<style>
+    .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .error-header {
+        border-bottom: 1px solid #dee2e6;
+        padding: 15px;
+        background-color: #dc3545;
+        color: #fff;
+    }
+
+    .success-header {
+        border-bottom: 1px solid #dee2e6;
+        padding: 15px;
+        background-color: #28a745;
+        color: #fff;
+    }
+
+    .modal-title {
+        margin: 0;
+    }
+
+    .modal-body {
+        padding: 15px;
+    }
+</style>

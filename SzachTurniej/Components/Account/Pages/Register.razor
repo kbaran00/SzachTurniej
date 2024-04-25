@@ -1,0 +1,318 @@
+﻿@page "/Account/Register"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using SzachTurniej.Data
+@rendermode InteractiveServer
+
+@inject IWebHostEnvironment environment
+@inject UserManager<ApplicationUser> UserManager
+@inject IUserStore<ApplicationUser> UserStore
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject ILogger<Register> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Rejestrajca</PageTitle>
+<div class="container-md mt-5">
+    <div class="row mt-5">
+        <div class="col-12 mt-5 mb-4">
+            <div class="card mt-3">
+                <div class="card-header">
+                    <div class="row">
+                        <div class="col">
+                            <h3 class="card-title">Utwórz nowe konto</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="row">
+                        <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
+                            <DataAnnotationsValidator />
+                            <h3>Dane logowania</h3>
+                            <hr />
+                            <div class="form-floating mb-3">
+                                <InputText @bind-Value="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
+                                <label for="email">Email</label>
+                                <ValidationMessage For="() => Input.Email" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputText type="password" @bind-Value="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" />
+                                <label for="password">Hasło</label>
+                                <ValidationMessage For="() => Input.Password" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputText type="password" @bind-Value="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
+                                <label for="confirm-password">Potwiedź hasło</label>
+                                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
+                            </div>
+                            <hr />
+                            <h3>Dane podstawowe</h3>
+                            <div class="form-floating mb-3">
+                                <InputText type="text" @bind-Value="Input.Name" class="form-control" />
+                                <label>Imię</label>
+                                <ValidationMessage For="() => Input.Name" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputText type="text" @bind-Value="Input.Surname" class="form-control" />
+                                <label>Nazwisko</label>
+                                <ValidationMessage For="() => Input.Surname" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputDate Type="InputDateType.Date" @bind-Value="Input.BirthDate" class="form-control" />
+                                <label>Data urodzenia</label>
+                                <ValidationMessage For="() => Input.BirthDate" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputSelect class="form-control" @bind-Value="Input.Sex">
+                                    @foreach (var type in Enum.GetValues(typeof(SexEnum)))
+                                    {
+                                        var enumValue = (SexEnum)type;
+                                        <option value="@((int)type)"><EnumDescription TEnum="SexEnum" EnumValue="enumValue" /></option>
+                                    }
+                                </InputSelect>
+                                <label>Płeć</label>
+                                <ValidationMessage For="() => Input.Sex" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputText type="text" @bind-Value="Input.City" class="form-control" />
+                                <label>Miejscowość</label>
+                                <ValidationMessage For="() => Input.City" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputFile OnChange="@((InputFileChangeEventArgs args) => LoadFile(args))" class="form-control mb-2" accept=".png,.jpg,.jpeg"></InputFile>
+                                <label>Zdjęcie profilowe</label>
+                                @if (fileErrors.Count > 0)
+                                {
+                                    @foreach (var error in fileErrors)
+                                    {
+                                        <span class="text-danger">@error</span>
+                                    }
+                                }
+                            </div>
+                            <hr />
+                            <h3>Dane gracza</h3>
+                            <div class="form-floating mb-3">
+                                <InputText type="text" @bind-Value="Input.Club" class="form-control" />
+                                <label>Klub szachowy</label>
+                                <ValidationMessage For="() => Input.Club" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputSelect class="form-control" @bind-Value="Input.ChessCategory">
+                                    @foreach (var type in Enum.GetValues(typeof(ChessCategoryEnum)))
+                                    {
+                                        var enumValue = (ChessCategoryEnum)type;
+                                        <option value="@((int)type)"><EnumDescription TEnum="ChessCategoryEnum" EnumValue="enumValue" /></option>
+                                    }
+                                </InputSelect>
+                                <label>Kategoria szachowa</label>
+                                <ValidationMessage For="() => Input.ChessCategory" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputNumber class="form-control mb-2" @bind-Value="Input.RankingPZSZACH"></InputNumber>
+                                <label>Ranking PZSZACH</label>
+                                <ValidationMessage For="() => Input.RankingPZSZACH" class="text-danger" />
+                            </div>
+                            <div class="form-floating mb-3">
+                                <InputNumber class="form-control mb-2" @bind-Value="Input.RankingFIDE"></InputNumber>
+                                <label>Ranking FIDE</label>
+                                <ValidationMessage For="() => Input.RankingFIDE" class="text-danger" />
+                            </div>
+
+                            <button type="submit" class="w-100 btn btn-lg btn-primary">Zarejestruj</button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<IdentityError>? identityErrors;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
+
+    private long maxFileSize = 1024 * 1024 * 50; //50MB
+    private List<string> fileErrors = new();
+    private IBrowserFile? file;
+
+    private void LoadFile(InputFileChangeEventArgs e)
+    {
+        fileErrors.Clear();
+        if (e.File.Size > maxFileSize)
+        {
+            fileErrors.Add("Za duży rozmiar zdjęcia. Dopuszczalne 50MB.");
+        }
+        else
+        {
+            file = e.File;
+        }
+    }
+
+    private async Task<string> CaptureFile()
+    {
+        if (file != null)
+        {
+            try
+            {
+                string uploadsPath = Path.Combine(environment.WebRootPath, "uploads");
+                string userPhotosPath = Path.Combine(uploadsPath, "usersPhotos");
+                string newFileName = Path.ChangeExtension(Path.GetRandomFileName(), Path.GetExtension(file.Name));
+                string path = Path.Combine(userPhotosPath, newFileName);
+
+                await using FileStream fs = new(path, FileMode.Create);
+                await file.OpenReadStream(maxFileSize).CopyToAsync(fs);
+
+                return newFileName;
+            }
+            catch (Exception ex)
+            {
+                fileErrors.Add($"Plik: {file.Name} Błąd: {ex.Message}");
+            }
+        }
+
+        return "";
+    }
+
+    public async Task RegisterUser(EditContext editContext)
+    {
+        var user = CreateUser();
+
+        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
+        var emailStore = GetEmailStore();
+        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+
+        string relativePath = await CaptureFile();
+        if (string.IsNullOrEmpty(relativePath))
+        {
+            user.ProfilePhoto = "default.jpg";
+        }
+        else
+        {
+            user.ProfilePhoto = relativePath;
+        }
+        user.Name = Input.Name;
+        user.Surname = Input.Surname;
+        user.BirthDate = Input.BirthDate;
+        user.Sex = Input.Sex;
+        user.City = Input.City;
+        user.Club = Input.Club;
+        user.ChessCategory = Input.ChessCategory;
+        user.RankingPZSZACH = Input.RankingPZSZACH;
+        user.RankingFIDE = Input.RankingFIDE;
+
+        var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (!result.Succeeded)
+        {
+            identityErrors = result.Errors;
+            return;
+        }
+
+        Logger.LogInformation("User created a new account with password.");
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        await UserManager.AddToRoleAsync(user, "User");
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
+
+        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+
+        if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        {
+            RedirectManager.RedirectTo(
+                "Account/RegisterConfirmation",
+                new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
+        }
+
+        RedirectManager.RedirectTo("Account/Login", new() { ["message"] = "Rejestracja zakończona. Teraz możesz się zalogować." });
+    }
+
+    private ApplicationUser CreateUser()
+    {
+        try
+        {
+            return Activator.CreateInstance<ApplicationUser>();
+        }
+        catch
+        {
+            throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. " +
+                $"Ensure that '{nameof(ApplicationUser)}' is not an abstract class and has a parameterless constructor.");
+        }
+    }
+
+    private IUserEmailStore<ApplicationUser> GetEmailStore()
+    {
+        if (!UserManager.SupportsUserEmail)
+        {
+            throw new NotSupportedException("The default UI requires a user store with email support.");
+        }
+        return (IUserEmailStore<ApplicationUser>)UserStore;
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "Adres email jest wymagany.")]
+        [EmailAddress(ErrorMessage = "Nieprawidłowy adres email")]
+        [Display(Name = "Email")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Hasło jest wymagane.")]
+        [StringLength(100, ErrorMessage = "Hasło musi posiadać przynajmniej {2} znaków oraz maksymalnie {1} znaków.", MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        [Display(Name = "Password")]
+        public string Password { get; set; } = "";
+
+        [DataType(DataType.Password)]
+        [Display(Name = "Confirm password")]
+        [Compare("Password", ErrorMessage = "Podane hasła nie pasują do siebie.")]
+        public string ConfirmPassword { get; set; } = "";
+
+        [Required(ErrorMessage = "Imię jest wymagane.")]
+        [Display(Name = "Imię")]
+        public string Name { get; set; } = "";
+
+        [Required(ErrorMessage = "Nazwisko jest wymagane.")]
+        [Display(Name = "Nazwisko")]
+        public string Surname { get; set; } = "";
+
+        [Display(Name = "Data urodzenia")]
+        public DateOnly BirthDate { get; set; } = DateOnly.FromDateTime(DateTime.Now);
+
+        [Display(Name = "Płeć")]
+        public int Sex { get; set; }
+
+        [Display(Name = "Miejscowość")]
+        public string City { get; set; } = "";
+
+        [Display(Name = "Klub szachowy")]
+        public string Club { get; set; } = "";
+
+        [Display(Name = "Kategoria szachowa")]
+        public int ChessCategory { get; set; }
+
+        [Display(Name = "Ranking PZSZACH")]
+        public int RankingPZSZACH { get; set; }
+
+        [Display(Name = "Ranking FIDE")]
+        public int RankingFIDE { get; set; }
+
+        [Display(Name = "Zdjęcie profilowe")]
+        public string? ProfilePhoto { get; set; }
+    }
+}

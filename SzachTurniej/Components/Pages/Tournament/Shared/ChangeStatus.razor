@@ -1,0 +1,70 @@
+﻿@page "/change-status/{id:int}"
+@inject ITournamentService TournamentService
+@rendermode InteractiveServer
+
+@if (tournament != null)
+{
+    if (tournament.Status != (int)TournamentStatusEnum.Finished)
+    {
+        <button class="btn btn-primary" @onclick="ChangeTournamentStatus">@statusString</button>
+    }
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [Parameter]
+    public EventCallback OnStatusChanged { get; set; }
+
+    private Tournament tournament;
+    private int status;
+    private string statusString = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTournament();
+    }
+
+    private async Task LoadTournament()
+    {
+        tournament = await TournamentService.GetById(Id);
+        status = tournament.Status;
+        UpdateStatusString();
+    }
+
+    private void UpdateStatusString()
+    {
+        switch ((TournamentStatusEnum)status)
+        {
+            case TournamentStatusEnum.ToAccept:
+                statusString = "Akceptuj";
+                break;
+            case TournamentStatusEnum.Planning:
+                statusString = "Rozpocznij turniej";
+                break;
+            case TournamentStatusEnum.OnGoing:
+                statusString = "Zakończ turniej";
+                break;
+            default:
+                break;
+        }
+    }
+
+    private async Task ChangeTournamentStatus()
+    {
+        if (tournament != null)
+        {
+            if (tournament.Status == (int)TournamentStatusEnum.Planning)
+            {
+                TournamentService.GenerateRound(tournament.Id);
+            }
+            else
+            {
+                tournament.Status += 1;
+                await TournamentService.Update(tournament);
+            }
+            await OnStatusChanged.InvokeAsync(); // Emit event to parent component
+        }
+    }
+}

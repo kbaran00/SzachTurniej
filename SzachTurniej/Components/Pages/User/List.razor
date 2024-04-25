@@ -1,0 +1,108 @@
+﻿@page "/userslist"
+@using SzachTurniej.Components.Account
+@inject IUserService UserService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+@inject IdentityUserAccessor UserAccessor
+@inject IHttpContextAccessor HttpContextAccessor
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Użytkownicy</PageTitle>
+<div class="container-md mt-5">
+    <div class="row mt-5">
+        <div class="col-12 mt-5 mb-4">
+            <div class="card mt-3">
+                <div class="card-header">
+                    <div class="row">
+                        <div class="col">
+                            <h3 class="card-title">Lista użytkowników</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        @if (UsersWithRoles != null && UsersWithRoles.Any())
+                        {
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Email</th>
+                                        <th>Rola</th>
+                                        <th>Akcje</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var userWithRole in UsersWithRoles)
+                                    {
+                                        <tr>
+                                            <td>@userWithRole.user.Email</td>
+                                            <td>@userWithRole.role</td>
+                                            @if (@user.Id == @userWithRole.user.Id || @userWithRole.user.Id == "1")
+                                            {
+                                                <td></td>
+                                            }
+                                            else
+                                            {
+                                                @if (@userWithRole.role == "Admin")
+                                                {
+                                                    <td>
+                                                        <button class="btn btn-primary" @onclick="() => SetUser(userWithRole.user.Id)">Ustaw jako użytkownik</button>
+                                                    </td>
+                                                }
+                                                else
+                                                {
+                                                    <td>
+                                                        <button class="btn btn-primary" @onclick="() => SetAdmin(userWithRole.user.Id)">Ustaw jako Admin</button>
+                                                    </td>
+                                                }
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                        else
+                        {
+                            <p>Nie znaleziono użytkowników.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationUser user = default!;
+
+    List<(ApplicationUser user, string role)> UsersWithRoles;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await UserAccessor.GetRequiredUserAsync(HttpContextAccessor.HttpContext);
+        UsersWithRoles = await UserService.GetAllUsersWithRolesAsync();
+    }
+
+    private async Task SetAdmin(string userId)
+    {
+        bool success = await UserService.SetAdminRole(userId);
+
+        if (success)
+        {
+            UsersWithRoles = await UserService.GetAllUsersWithRolesAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetUser(string userId)
+    {
+        bool success = await UserService.SetUserRole(userId);
+
+        if (success)
+        {
+            UsersWithRoles = await UserService.GetAllUsersWithRolesAsync();
+            StateHasChanged();
+        }
+    }
+}

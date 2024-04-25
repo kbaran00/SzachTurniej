@@ -1,0 +1,281 @@
+﻿@page "/edit-tournament"
+@page "/edit-tournament/{id:int}"
+@inject NavigationManager NavigationManager
+@inject ITournamentService TournamentService
+@inject IWebHostEnvironment environment
+@rendermode InteractiveServer
+
+@if (Id.HasValue)
+{
+    <PageTitle>Edycja turnieju</PageTitle>
+}
+else
+{
+    <PageTitle>Tworzenie turnieju</PageTitle>
+}
+<div class="container-md mt-5">
+    <div class="row mt-5">
+        <div class="col-12 mt-5 mb-4">
+            <div class="card mt-3">
+                <div class="card-header">
+                    <div class="row">
+                        <div class="col">
+                            @if (Id.HasValue)
+                            {
+                                <h3>Edytuj turniej</h3>
+                            }
+                            else
+                            {
+                                <h3>Dodaj turniej</h3>
+                            }
+                        </div>
+                        <div class="col">
+                            <div class="text-end">
+                                <button class="btn btn-primary" @onclick="GoBack">Powrót</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="row">
+                        <EditForm Model="tournament" OnValidSubmit="HandleSubmit" FormName="EditTournament">
+                            <DataAnnotationsValidator />
+                            <input type="hidden" value="@tournament.Id" />
+                            <div class="form-group col-md-12">
+                                <label>Nazwa turnieju</label>
+                                <InputText class="form-control mb-2" @bind-Value="tournament.Name">@tournament.Name</InputText>
+                                <ValidationMessage For="() => tournament.Name" class="text-danger" />
+                            </div>
+                            <div class="row">
+                                <div class="form-group col-md-6">
+                                    <label>Data rozpoczęcia</label>
+                                    <InputDate Type="InputDateType.DateTimeLocal" class="form-control mb-2" @bind-Value="tournament.StartDate">@tournament.StartDate</InputDate>
+                                    <ValidationMessage For="() => tournament.StartDate" class="text-danger" />
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label>Data zakończenia</label>
+                                    <InputDate Type="InputDateType.DateTimeLocal" class="form-control mb-2" @bind-Value="tournament.EndDate">@tournament.EndDate</InputDate>
+                                    <ValidationMessage For="() => tournament.EndDate" class="text-danger" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="form-group col-md-6">
+                                    <label>Miejscowość</label>
+                                    <InputText class="form-control mb-2" @bind-Value="tournament.Location">@tournament.Location</InputText>
+                                    <ValidationMessage For="() => tournament.Location" class="text-danger" />
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label>Sędzia</label>
+                                    <InputText class="form-control mb-2" @bind-Value="tournament.Arbiter">@tournament.Arbiter</InputText>
+                                    <ValidationMessage For="() => tournament.Arbiter" class="text-danger" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="form-group col-md-6">
+                                    <label>Typ</label>
+                                    <InputSelect class="form-control mb-2" @bind-Value="tournament.Type">
+                                        @foreach (var type in Enum.GetValues(typeof(TournamentTypeEnum)))
+                                        {
+                                            var enumValue = (TournamentTypeEnum)type;
+                                            <option value="@((int)type)"><EnumDescription TEnum="TournamentTypeEnum" EnumValue="enumValue" /></option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="() => tournament.Type" class="text-danger" />
+                                </div>
+                                <div class="form-group col-md-3" style="display: inline-block;">
+                                    <label>Czas podstawowy</label><br />
+                                    <div style="display: inline-block;">
+                                        <InputNumber class="form-control mb-2" @bind-Value="tournament.BasicTime"></InputNumber>
+                                        <ValidationMessage For="() => tournament.BasicTime" class="text-danger" />
+                                    </div>
+                                    <div style="display: inline-block;">
+                                        <InputSelect class="form-control mb-2" @bind-Value="tournament.BasicTimeType">
+                                            @foreach (var basicTime in Enum.GetValues(typeof(TimeTypeEnum)))
+                                            {
+                                                var enumValue = (TimeTypeEnum)basicTime;
+                                                <option value="@((int)basicTime)"><EnumDescription TEnum="TimeTypeEnum" EnumValue="enumValue" /></option>
+                                            }
+                                        </InputSelect>
+                                        <ValidationMessage For="() => tournament.BasicTime" class="text-danger" />
+                                        <ValidationMessage For="() => tournament.BasicTimeType" class="text-danger" />
+                                    </div>
+                                </div>
+                                <div class="form-group col-md-3" style="display: inline-block;">
+                                    <label>Czas dodatkowy za ruch</label><br />
+                                    <div style="display: inline-block;">
+                                        <InputNumber class="form-control mb-2" @bind-Value="tournament.AdditionalTime"></InputNumber>
+                                        <ValidationMessage For="() => tournament.AdditionalTime" class="text-danger" />
+                                    </div>
+                                    <div style="display: inline-block;">
+                                        <InputSelect class="form-control mb-2" @bind-Value="tournament.AdditionalTimeType">
+                                            @foreach (var additionalTime in Enum.GetValues(typeof(TimeTypeEnum)))
+                                            {
+                                                var enumValue = (TimeTypeEnum)additionalTime;
+                                                <option value="@((int)additionalTime)"><EnumDescription TEnum="TimeTypeEnum" EnumValue="enumValue" /></option>
+                                            }
+                                        </InputSelect>
+                                        <ValidationMessage For="() => tournament.AdditionalTime" class="text-danger" />
+                                        <ValidationMessage For="() => tournament.AdditionalTimeType" class="text-danger" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="form-group col-md-6" style="display: inline-block;">
+                                    <label>Liczba rund</label>
+                                    <InputNumber class="form-control mb-2" @bind-Value="tournament.Rounds">@tournament.Rounds</InputNumber>
+                                    <ValidationMessage For="() => tournament.Rounds" class="text-danger" />
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label>Regulamin</label>
+                                    @if (!string.IsNullOrEmpty(tournament.Regulation))
+                                    {
+                                        <div>
+                                            <span>
+                                                Przesłany regulamin: @tournament.Regulation -
+                                                <a href="@($"uploads/regulations/{tournament.Regulation}")" download>Pobierz</a>
+                                            </span>
+                                        </div>
+                                    }
+                                    <InputFile OnChange="@LoadFile" class="form-control mb-2"></InputFile>
+                                    @if (fileErrors.Count > 0)
+                                    {
+                                        @foreach (var error in fileErrors)
+                                        {
+                                            <span class="text-danger">@error</span>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="form-group col-md-6">
+                                    <label>Opis</label>
+                                    <InputTextArea class="form-control mb-2" rows="5" @bind-Value="tournament.Description">@tournament.Description</InputTextArea>
+                                    <ValidationMessage For="() => tournament.Description" class="text-danger" />
+                                </div>
+                            </div>
+
+                            <ValidationSummary class="text-danger col-md-12" role="alert" />
+
+                            <button type="submit" class="btn btn-primary">Wyślij</button>
+
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    [SupplyParameterFromForm]
+    Tournament tournament { get; set; } = new Tournament
+        {
+            Name = string.Empty,
+            Description = string.Empty,
+            StartDate = DateTime.Now,
+            EndDate = DateTime.Now.AddDays(1),
+            Location = string.Empty,
+            Type = 1,
+            BasicTime = 15,
+            BasicTimeType = 2,
+            AdditionalTime = 0,
+            AdditionalTimeType = 1,
+            Rounds = 9,
+            Arbiter = string.Empty,
+            Regulation = string.Empty
+        };
+
+    private long maxFileSize = 1024 * 1024 * 10; //10MB
+    private List<string> fileErrors = new();
+    private IBrowserFile? file;
+
+    private async Task GoBack()
+    {
+        await JSRuntime.InvokeVoidAsync("history.back");
+    }
+
+    private void LoadFile(InputFileChangeEventArgs e)
+    {
+        fileErrors.Clear();
+        if (e.File.Size > maxFileSize)
+        {
+            fileErrors.Add("Za duży rozmiar zdjęcia. Dopuszczalne 10MB.");
+        }
+        else
+        {
+            file = e.File;
+        }
+    }
+
+    private async Task<string> CaptureFile()
+    {
+        if (file != null)
+        {
+            try
+            {
+                string uploadsPath = Path.Combine(environment.WebRootPath, "uploads");
+                string userPhotosPath = Path.Combine(uploadsPath, "tournamentRegulations");
+                string newFileName = $"Regulamin_{tournament.Id}{Path.GetExtension(file.Name)}";
+                string path = Path.Combine(userPhotosPath, newFileName);
+
+                await using FileStream fs = new(path, FileMode.Create);
+                await file.OpenReadStream(maxFileSize).CopyToAsync(fs);
+
+                return newFileName;
+            }
+            catch (Exception ex)
+            {
+                fileErrors.Add($"Plik: {file.Name} Błąd: {ex.Message}");
+            }
+        }
+
+        return "";
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id != null)
+        {
+            tournament = await TournamentService.GetById(Id.Value);
+            if (string.IsNullOrEmpty(tournament.Regulation))
+            {
+
+            }
+        }
+    }
+
+    async Task HandleSubmit()
+    {
+        if (Id.HasValue)
+        {
+            if (file != null)
+            {
+                // Delete the old file if it exists
+                if (!string.IsNullOrEmpty(tournament.Regulation))
+                {
+                    string existingFilePath = Path.Combine(environment.WebRootPath, "uploads", "regulations", tournament.Regulation);
+                    if (File.Exists(existingFilePath))
+                    {
+                        File.Delete(existingFilePath);
+                    }
+                }
+
+                // Save the new file
+                string relativePath = await CaptureFile();
+                tournament.Regulation = relativePath;
+            }
+            await TournamentService.Update(tournament);
+        }
+        else
+        {
+            string relativePath = await CaptureFile();
+            tournament.Regulation = relativePath;
+            await TournamentService.Create(tournament);
+        }
+        NavigationManager.NavigateTo("/tournaments", forceLoad: true);
+    }
+}
